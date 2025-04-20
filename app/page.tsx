@@ -1,103 +1,168 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import ExpenseChart from '@/components/ExpenseChart';
+import Navbar from '@/components/Navbar'; // Import the Navbar component
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [expenses, setExpenses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  useEffect(() => {
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('proyecto_gastos')
+          .select('*')
+          .order('fecha', { ascending: true });
+        
+        if (error) throw error;
+        
+        setExpenses(data || []);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Function to add test data
+  const addTestData = async () => {
+    setIsLoading(true);
+    try {
+      // Sample data generator
+      const generateSampleData = () => {
+        const projectNames = ['jalapeño1', 'tomate', 'berries', 'berries2'];
+        const sampleExpenses = [];
+        
+        // Generate data for each month of 2025
+        for (let month = 1; month <= 12; month++) {
+          // Add expenses for each project
+          for (const project of projectNames) {
+            // Different expense patterns for each project
+            let baseAmount = 1000;
+            if (project === 'jalapeño1') baseAmount = 1500 + (month * 120);
+            if (project === 'tomate') baseAmount = 2000 + (month * 80);
+            if (project === 'berries') baseAmount = 1200 + (month * 150);
+            if (project === 'berries2') baseAmount = 1800 + (month * 100);
+            
+            // Add 2-3 expenses per project per month
+            for (let i = 0; i < 2 + (month % 2); i++) {
+              const categories = ['Fertilizante', 'Agua', 'Semillas', 'Mano de obra', 'Transporte', 'Electricidad'];
+              const category = categories[i % categories.length];
+              
+              // Vary amount slightly
+              const variation = 0.8 + (i * 0.1);
+              const amount = baseAmount * variation;
+              
+              sampleExpenses.push({
+                fecha: new Date(2025, month - 1, 10 + i * 5).toISOString(),
+                descripcion: category,
+                monto: amount,
+                proyecto: project,
+              });
+            }
+          }
+        }
+        
+        return sampleExpenses;
+      };
+
+      const testData = generateSampleData();
+      
+      // Insert in smaller batches to avoid rate limits
+      const batchSize = 5;
+      for (let i = 0; i < testData.length; i += batchSize) {
+        const end = (i + batchSize < testData.length) ? i + batchSize : testData.length;
+        const batch = testData.slice(i, end);
+        
+        const { error } = await supabase.from('proyecto_gastos').insert(batch);
+        
+        if (error) throw error;
+        
+        // Small delay between batches
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
+      
+      // Reload data
+      const { data, error } = await supabase
+        .from('proyecto_gastos')
+        .select('*')
+        .order('fecha', { ascending: true });
+      
+      if (error) throw error;
+      
+      setExpenses(data || []);
+      
+    } catch (err) {
+      console.error('Error adding test data:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Add the Navbar at the top of the page */}
+      <Navbar />
+      
+      <main className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Gastos por Proyecto</h1>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => fetchData()}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Cargando...' : 'Refrescar'}
+              </button>
+              <button
+                onClick={addTestData}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Cargando...' : 'Agregar Datos de Prueba'}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-100 text-red-800 rounded-md">
+              Error: {error}
+            </div>
+          )}
+
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+            </div>
+          ) : (
+            expenses.length > 0 ? (
+              <ExpenseChart expenses={expenses} />
+            ) : (
+              <div className="bg-white p-6 rounded-lg shadow-md text-center">
+                <p className="text-gray-500 mb-4">No hay datos para mostrar. Usa el botón "Agregar Datos de Prueba" para generar datos.</p>
+                <button
+                  onClick={addTestData}
+                  className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 transition"
+                >
+                  Agregar Datos de Prueba
+                </button>
+              </div>
+            )
+          )}
         </div>
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+    </>
   );
 }

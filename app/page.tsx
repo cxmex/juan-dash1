@@ -5,31 +5,40 @@ import { supabase } from '@/lib/supabase';
 import ExpenseChart from '@/components/ExpenseChart';
 import Navbar from '@/components/Navbar'; // Import the Navbar component
 
+// Define the interface for the expense items
+interface Expense {
+  fecha: string;
+  descripcion: string;
+  monto: number;
+  proyecto: string;
+  // Add any other properties your expenses table has
+}
+
 export default function Home() {
-  const [expenses, setExpenses] = useState([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('proyecto_gastos')
+        .select('*')
+        .order('fecha', { ascending: true });
+      
+      if (error) throw error;
+      
+      setExpenses(data || []);
+    } catch (err: any) {
+      console.error('Error fetching data:', err);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('proyecto_gastos')
-          .select('*')
-          .order('fecha', { ascending: true });
-        
-        if (error) throw error;
-        
-        setExpenses(data || []);
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        setError(err.message);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
@@ -40,7 +49,7 @@ export default function Home() {
       // Sample data generator
       const generateSampleData = () => {
         const projectNames = ['jalapeño1', 'tomate', 'berries', 'berries2'];
-        const sampleExpenses = [];
+        const sampleExpenses: Expense[] = [];
         
         // Generate data for each month of 2025
         for (let month = 1; month <= 12; month++) {
@@ -92,16 +101,9 @@ export default function Home() {
       }
       
       // Reload data
-      const { data, error } = await supabase
-        .from('proyecto_gastos')
-        .select('*')
-        .order('fecha', { ascending: true });
+      await fetchData();
       
-      if (error) throw error;
-      
-      setExpenses(data || []);
-      
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding test data:', err);
       setError(err.message);
     } finally {
